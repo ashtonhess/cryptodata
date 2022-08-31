@@ -8,7 +8,11 @@ import time
 url = 'https://data.binance.vision/data/spot/monthly/trades/BTCUSDT/BTCUSDT-trades-2022-04.zip'
 smallurl = 'https://data.binance.vision/data/spot/monthly/trades/BTCSTUSDT/BTCSTUSDT-trades-2022-06.zip'
 smallerurl = 'https://data.binance.vision/data/spot/monthly/trades/1INCHUSDT/1INCHUSDT-trades-2022-07.zip'
-url = smallerurl
+url_525mb = 'https://data.binance.vision/data/spot/monthly/trades/BTCUSDT/BTCUSDT-trades-2022-03.zip'
+url_1003mb = 'https://data.binance.vision/data/spot/monthly/trades/BTCUSDT/BTCUSDT-trades-2021-04.zip'
+url_1gb = 'https://data.binance.vision/data/spot/monthly/trades/BTCUSDT/BTCUSDT-trades-2021-03.zip'
+url_1point7gb = 'https://data.binance.vision/data/spot/monthly/trades/BTCUSDT/BTCUSDT-trades-2022-07.zip'
+url = url_525mb
 
 
 # resp = urlopen(url)
@@ -78,10 +82,45 @@ def binance_to_dataframe(url):
     return fdf
 
 
-start = time.perf_counter()
-dfRes = binance_to_dataframe(url)
-end = time.perf_counter()
-print(f"binance_to_dataframe time: {end - start:0.4f} seconds")
+def binance_to_dataframe_faster(url):
+    resp = urlopen(url)
+    zipfile = ZipFile(BytesIO(resp.read()))
+    filename = zipfile.namelist()[0]
+    print(filename)
+    # fdf = pd.DataFrame()
+    counter=0
+    dictList=[]
+    # allDict={}
+    for line in zipfile.open(filename).readlines():
+        decoded = line.decode('utf-8')
+        splitline = decoded.split(',')
+        # Format for 'trades' data:
+        # trade Id	price	qty	quoteQty	time	isBuyerMaker	isBestMatch
+        dict = {'tradeID': [splitline[0]], 'price': splitline[1], 'qty': [splitline[2]], 'quoteQty': [splitline[3]],
+             'time': [splitline[4]], 'isBuyerMaker': [splitline[5]], 'isBestMatch': [splitline[6]]}
+        dictList.append(dict)
+        # df = pd.DataFrame(
+        #     {'tradeID': [splitline[0]], 'price': splitline[1], 'qty': [splitline[2]], 'quoteQty': [splitline[3]],
+        #      'time': [splitline[4]], 'isBuyerMaker': [splitline[5]], 'isBestMatch': [splitline[6]]})
+        # fdf = pd.concat([fdf, df])
+        if(counter%10000==0):
+            print(dictList[-1])
+            print()
+        counter+=1
+    fdf = pd.DataFrame().from_records(dictList)
+    print(f'{filename} has been written to a dataframe.')
+    return fdf
+
+
+s = time.perf_counter()
+dfRes = binance_to_dataframe_faster(url)
+e = time.perf_counter()
+print(f"binance_to_dataframe_faster time: {e - s:0.4f} seconds")
+
+# start = time.perf_counter()
+# dfRes = binance_to_dataframe(url)
+# end = time.perf_counter()
+# print(f"binance_to_dataframe time: {end - start:0.4f} seconds")
 
 start1 = time.perf_counter()
 dfpricemean = dfRes['price'].mean()
